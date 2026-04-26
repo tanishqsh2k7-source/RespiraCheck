@@ -388,7 +388,7 @@ export default function App() {
                     <h2 className="chat-title">Medical AI Assistant</h2>
                     <div className="chat-status">
                       <div className="status-dot"></div>
-                      Online • Gemini 1.5 Flash
+                      Online • Gemini 2.5 Flash
                     </div>
                   </div>
                 </header>

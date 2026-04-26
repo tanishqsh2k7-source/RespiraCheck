@@ -45,7 +45,7 @@ try:
     _GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
     if _GEMINI_API_KEY:
         _gemini_client = genai.Client(api_key=_GEMINI_API_KEY)
-        print("[app] Gemini 1.5 Flash configured successfully (google-genai).")
+        print("[app] Gemini 2.5 Flash configured successfully (google-genai).")
     else:
         _gemini_client = None
         print("[WARNING] GEMINI_API_KEY not set. /chat endpoint will be unavailable.")
@@ -300,7 +300,7 @@ def chat():
 
     try:
         response = _gemini_client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash',
             contents=full_prompt,
         )
         reply_text = response.text
