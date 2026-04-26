@@ -36,20 +36,22 @@ from gradcam import generate_gradcam, overlay_heatmap
 # ---------------------------------------------------------------------------
 # Gemini Configuration
 # ---------------------------------------------------------------------------
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables from .env file
+
 try:
-    import google.generativeai as genai
+    from google import genai
 
     _GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
     if _GEMINI_API_KEY:
-        genai.configure(api_key=_GEMINI_API_KEY)
-        _gemini_model = genai.GenerativeModel("gemini-1.5-flash")
-        print("[app] Gemini 1.5 Flash configured successfully.")
+        _gemini_client = genai.Client(api_key=_GEMINI_API_KEY)
+        print("[app] Gemini 1.5 Flash configured successfully (google-genai).")
     else:
-        _gemini_model = None
+        _gemini_client = None
         print("[WARNING] GEMINI_API_KEY not set. /chat endpoint will be unavailable.")
 except ImportError:
-    _gemini_model = None
-    print("[WARNING] google-generativeai not installed. /chat endpoint disabled.")
+    _gemini_client = None
+    print("[WARNING] google-genai not installed. /chat endpoint disabled.")
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -181,7 +183,7 @@ def health():
         "status": "ok",
         "model_loaded": model is not None,
         "model_path": model_path,
-        "gemini_available": _gemini_model is not None,
+        "gemini_available": _gemini_client is not None,
     })
 
 
@@ -259,7 +261,7 @@ def chat():
         "reply": "Gemini's response text"
     }
     """
-    if _gemini_model is None:
+    if _gemini_client is None:
         return jsonify({
             "error": "Chat is unavailable. Gemini API key not configured."
         }), 503
@@ -285,28 +287,22 @@ def chat():
             f"chest X-ray images with transfer learning."
         )
 
-    # Build conversation history for Gemini
+    # Build full prompt including history
     history = data.get("history", [])
-    gemini_history = []
+    full_prompt = SYSTEM_PROMPT + context_str + "\n\n"
+    
     for msg in history:
-        role = "user" if msg.get("role") == "user" else "model"
-        gemini_history.append({"role": role, "parts": [msg.get("text", "")]})
+        role = "User" if msg.get("role") == "user" else "Assistant"
+        text = msg.get("text", "")
+        full_prompt += f"{role}: {text}\n\n"
+        
+    full_prompt += f"User: {user_message}\n\nAssistant:"
 
     try:
-        # Start a chat session with history
-        chat_session = _gemini_model.start_chat(history=gemini_history)
-
-        # Construct the full prompt with system context
-        full_prompt = SYSTEM_PROMPT + context_str + "\n\nUser: " + user_message
-
-        # If this is the first message, include full system prompt
-        # For subsequent messages, the history carries the context
-        if len(gemini_history) == 0:
-            prompt = full_prompt
-        else:
-            prompt = user_message
-
-        response = chat_session.send_message(prompt)
+        response = _gemini_client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=full_prompt,
+        )
         reply_text = response.text
 
         return jsonify({"reply": reply_text})
