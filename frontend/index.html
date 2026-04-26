@@ -3,14 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PneumoScan — AI Chest X-Ray Analysis</title>
-    <meta name="description" content="AI-assisted chest X-ray pneumonia detection with Grad-CAM++ explainability." />
+    <title>RespiraCheck — AI Chest X-Ray Pneumonia Detection</title>
+    <meta name="description" content="AI-assisted chest X-ray pneumonia detection powered by deep learning with Grad-CAM++ explainability and Gemini AI chat assistant." />
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: #0a0f1e; font-family: 'Inter', sans-serif; }
+      body {
+        background: #060a14;
+        font-family: 'Inter', sans-serif;
+        overflow-x: hidden;
+      }
+      /* Prevent FOUC */
+      #root { opacity: 0; animation: rootFadeIn 0.4s 0.1s forwards; }
+      @keyframes rootFadeIn { to { opacity: 1; } }
     </style>
   </head>
   <body>

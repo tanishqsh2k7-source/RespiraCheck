@@ -15,6 +15,7 @@ Model resolution order
 Endpoints
 ---------
     POST /predict   — Upload a chest X-ray, receive prediction + Grad-CAM overlay
+    POST /chat      — Send a message to the Gemini-powered medical assistant
     GET  /health    — Liveness probe
 """
 
@@ -33,6 +34,24 @@ from PIL import Image
 from gradcam import generate_gradcam, overlay_heatmap
 
 # ---------------------------------------------------------------------------
+# Gemini Configuration
+# ---------------------------------------------------------------------------
+try:
+    import google.generativeai as genai
+
+    _GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+    if _GEMINI_API_KEY:
+        genai.configure(api_key=_GEMINI_API_KEY)
+        _gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+        print("[app] Gemini 1.5 Flash configured successfully.")
+    else:
+        _gemini_model = None
+        print("[WARNING] GEMINI_API_KEY not set. /chat endpoint will be unavailable.")
+except ImportError:
+    _gemini_model = None
+    print("[WARNING] google-generativeai not installed. /chat endpoint disabled.")
+
+# ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 BEST_MODEL_PTR   = "best_model_path.txt"          # written by evaluate.py
@@ -41,6 +60,27 @@ IMG_SIZE         = (224, 224)
 MAX_CONTENT_LENGTH = 5 * 1024 * 1024              # 5 MB
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png"}
 LABEL_MAP        = {0: "NORMAL", 1: "PNEUMONIA"}
+
+# System prompt for the Gemini medical assistant
+SYSTEM_PROMPT = """You are PneumoScan AI Assistant, an intelligent medical AI helper integrated into a chest X-ray pneumonia detection system. Your role is to:
+
+1. **Explain predictions**: When given prediction context (the model's classification and confidence), explain what the result means in clear, non-technical language.
+
+2. **Educate about pneumonia**: Provide accurate, helpful information about pneumonia — types (bacterial, viral, fungal), symptoms, risk factors, treatment approaches, and recovery.
+
+3. **Guide next steps**: If pneumonia is detected, suggest appropriate next steps (seeing a doctor, getting additional tests, etc.).
+
+4. **Explain the AI model**: If asked, explain how the deep learning model works (DenseNet/EfficientNet transfer learning, Grad-CAM++ heatmaps) in accessible terms.
+
+IMPORTANT RULES:
+- Always emphasize that you are an AI screening tool, NOT a substitute for professional medical diagnosis.
+- Never provide specific treatment prescriptions or dosages.
+- Always recommend consulting a healthcare professional for definitive diagnosis.
+- Be empathetic and reassuring while remaining factual.
+- Keep responses concise (2-4 paragraphs max) unless the user asks for detailed explanations.
+- Use markdown formatting (bold, bullet points) for readability.
+- If the prediction is NORMAL, reassure the user but still recommend regular checkups.
+- If the prediction is PNEUMONIA, be calm and informative, not alarming."""
 
 
 def _resolve_model_path() -> str:
@@ -141,6 +181,7 @@ def health():
         "status": "ok",
         "model_loaded": model is not None,
         "model_path": model_path,
+        "gemini_available": _gemini_model is not None,
     })
 
 
@@ -197,6 +238,84 @@ def predict():
         "confidence": round(confidence, 4),
         "gradcam_image": gradcam_b64,
     })
+
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    """Gemini-powered medical assistant chat endpoint.
+
+    Expects JSON body:
+    {
+        "message": "user's message text",
+        "history": [{"role": "user"|"assistant", "text": "..."}],
+        "prediction_context": {
+            "prediction": "NORMAL"|"PNEUMONIA",
+            "confidence": 0.95
+        }
+    }
+
+    Returns JSON:
+    {
+        "reply": "Gemini's response text"
+    }
+    """
+    if _gemini_model is None:
+        return jsonify({
+            "error": "Chat is unavailable. Gemini API key not configured."
+        }), 503
+
+    data = request.get_json(silent=True)
+    if not data or "message" not in data:
+        return jsonify({"error": "Missing 'message' in request body."}), 400
+
+    user_message = data["message"].strip()
+    if not user_message:
+        return jsonify({"error": "Message cannot be empty."}), 400
+
+    # Build prediction context string
+    prediction_context = data.get("prediction_context", {})
+    context_str = ""
+    if prediction_context:
+        pred = prediction_context.get("prediction", "Unknown")
+        conf = prediction_context.get("confidence", 0)
+        context_str = (
+            f"\n\n[PREDICTION CONTEXT] The AI model classified this chest X-ray as "
+            f"**{pred}** with **{conf * 100:.1f}%** confidence. "
+            f"The model used is a DenseNet121 deep learning architecture trained on "
+            f"chest X-ray images with transfer learning."
+        )
+
+    # Build conversation history for Gemini
+    history = data.get("history", [])
+    gemini_history = []
+    for msg in history:
+        role = "user" if msg.get("role") == "user" else "model"
+        gemini_history.append({"role": role, "parts": [msg.get("text", "")]})
+
+    try:
+        # Start a chat session with history
+        chat_session = _gemini_model.start_chat(history=gemini_history)
+
+        # Construct the full prompt with system context
+        full_prompt = SYSTEM_PROMPT + context_str + "\n\nUser: " + user_message
+
+        # If this is the first message, include full system prompt
+        # For subsequent messages, the history carries the context
+        if len(gemini_history) == 0:
+            prompt = full_prompt
+        else:
+            prompt = user_message
+
+        response = chat_session.send_message(prompt)
+        reply_text = response.text
+
+        return jsonify({"reply": reply_text})
+
+    except Exception as exc:
+        print(f"[ERROR] Gemini chat failed: {exc}")
+        return jsonify({
+            "error": f"Chat failed: {str(exc)}"
+        }), 500
 
 
 # ---------------------------------------------------------------------------

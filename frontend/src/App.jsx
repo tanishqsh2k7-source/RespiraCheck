@@ -1,265 +1,89 @@
-/**
- * App.jsx — PneumoScan React Frontend
- *
- * Single-file React component providing a medical-style dark-themed UI
- * for uploading chest X-ray images, obtaining AI predictions, and
- * visualising Grad-CAM++ explainability overlays.
- *
- * Communicates with the Flask backend at http://localhost:5000.
- */
+import React, { useState, useRef, useEffect } from "react";
+import "./style.css";
 
-import React, { useState, useRef, useCallback } from "react";
+// SVG Icons as functional components
+const ActivityIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+);
 
-/* ------------------------------------------------------------------ */
-/*  Configuration                                                      */
-/* ------------------------------------------------------------------ */
+const UploadCloudIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m16 16-4-4-4 4"></path></svg>
+);
+
+const XIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+);
+
+const ShieldAlertIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+);
+
+const ScanLineIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="7" y1="12" x2="17" y2="12"></line></svg>
+);
+
+const BotIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line></svg>
+);
+
+const SendIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+);
+
+const AlertCircleIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+);
+
 const API_URL = "http://localhost:5000";
 
-/* ------------------------------------------------------------------ */
-/*  Styles                                                             */
-/* ------------------------------------------------------------------ */
-const styles = {
-  /* ---------- Global / Layout ---------- */
-  app: {
-    minHeight: "100vh",
-    background: "linear-gradient(145deg, #0a0f1e 0%, #0d1528 50%, #0a1020 100%)",
-    color: "#e0e6f0",
-    fontFamily: "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    padding: "0 16px 48px",
-  },
-
-  /* ---------- Header ---------- */
-  header: {
-    width: "100%",
-    maxWidth: 860,
-    textAlign: "center",
-    padding: "40px 0 24px",
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 700,
-    background: "linear-gradient(90deg, #00d4ff, #7b61ff)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    margin: 0,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#8892a7",
-    marginTop: 6,
-    letterSpacing: 0.3,
-  },
-
-  /* ---------- Card container ---------- */
-  card: {
-    width: "100%",
-    maxWidth: 620,
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: 16,
-    padding: "32px 28px",
-    backdropFilter: "blur(12px)",
-    boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
-    marginTop: 8,
-  },
-
-  /* ---------- Drop zone ---------- */
-  dropZone: (isDragging) => ({
-    border: `2px dashed ${isDragging ? "#00d4ff" : "rgba(255,255,255,0.15)"}`,
-    borderRadius: 12,
-    padding: "40px 20px",
-    textAlign: "center",
-    cursor: "pointer",
-    transition: "all 0.25s ease",
-    background: isDragging
-      ? "rgba(0,212,255,0.06)"
-      : "rgba(255,255,255,0.02)",
-  }),
-  dropIcon: {
-    fontSize: 42,
-    marginBottom: 10,
-    filter: "grayscale(0.3)",
-  },
-  dropText: {
-    fontSize: 15,
-    color: "#a0acc4",
-  },
-  dropHint: {
-    fontSize: 12,
-    color: "#5e6a80",
-    marginTop: 6,
-  },
-
-  /* ---------- Preview ---------- */
-  previewContainer: {
-    marginTop: 20,
-    textAlign: "center",
-  },
-  previewImage: {
-    maxWidth: "100%",
-    maxHeight: 260,
-    borderRadius: 10,
-    border: "1px solid rgba(255,255,255,0.1)",
-    objectFit: "contain",
-  },
-  fileName: {
-    fontSize: 13,
-    color: "#8892a7",
-    marginTop: 8,
-  },
-
-  /* ---------- Button ---------- */
-  button: (disabled) => ({
-    marginTop: 22,
-    width: "100%",
-    padding: "14px 0",
-    fontSize: 16,
-    fontWeight: 600,
-    letterSpacing: 0.4,
-    color: disabled ? "#5e6a80" : "#0a0f1e",
-    background: disabled
-      ? "rgba(255,255,255,0.06)"
-      : "linear-gradient(135deg, #00d4ff, #7b61ff)",
-    border: "none",
-    borderRadius: 10,
-    cursor: disabled ? "not-allowed" : "pointer",
-    transition: "all 0.3s ease",
-    boxShadow: disabled ? "none" : "0 4px 18px rgba(0,212,255,0.25)",
-  }),
-
-  /* ---------- Spinner ---------- */
-  spinnerWrap: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "36px 0",
-  },
-  spinnerText: {
-    marginTop: 14,
-    fontSize: 15,
-    color: "#00d4ff",
-    letterSpacing: 0.5,
-  },
-
-  /* ---------- Results ---------- */
-  resultSection: {
-    marginTop: 28,
-  },
-  badge: (isNormal) => ({
-    display: "inline-block",
-    padding: "8px 22px",
-    borderRadius: 8,
-    fontSize: 18,
-    fontWeight: 700,
-    letterSpacing: 1,
-    color: "#fff",
-    background: isNormal
-      ? "linear-gradient(135deg, #00c853, #00e676)"
-      : "linear-gradient(135deg, #ff1744, #ff5252)",
-    boxShadow: isNormal
-      ? "0 4px 14px rgba(0,200,83,0.3)"
-      : "0 4px 14px rgba(255,23,68,0.3)",
-  }),
-  confidenceWrap: {
-    marginTop: 18,
-  },
-  confidenceLabel: {
-    fontSize: 13,
-    color: "#8892a7",
-    marginBottom: 6,
-  },
-  progressBarOuter: {
-    width: "100%",
-    height: 10,
-    background: "rgba(255,255,255,0.08)",
-    borderRadius: 5,
-    overflow: "hidden",
-  },
-  progressBarInner: (pct, isNormal) => ({
-    width: `${pct}%`,
-    height: "100%",
-    borderRadius: 5,
-    background: isNormal
-      ? "linear-gradient(90deg, #00c853, #69f0ae)"
-      : "linear-gradient(90deg, #ff1744, #ff8a80)",
-    transition: "width 0.8s ease",
-  }),
-  confidenceValue: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: "#e0e6f0",
-    marginTop: 6,
-  },
-
-  /* ---------- Grad-CAM ---------- */
-  gradcamWrap: {
-    marginTop: 24,
-    textAlign: "center",
-  },
-  gradcamTitle: {
-    fontSize: 14,
-    color: "#8892a7",
-    marginBottom: 10,
-  },
-  gradcamImage: {
-    maxWidth: "100%",
-    maxHeight: 280,
-    borderRadius: 10,
-    border: "1px solid rgba(0,212,255,0.2)",
-    objectFit: "contain",
-  },
-
-  /* ---------- Disclaimer ---------- */
-  disclaimer: {
-    marginTop: 24,
-    padding: "12px 16px",
-    background: "rgba(255,193,7,0.08)",
-    border: "1px solid rgba(255,193,7,0.2)",
-    borderRadius: 8,
-    fontSize: 12,
-    color: "#ffd54f",
-    lineHeight: 1.5,
-    textAlign: "center",
-  },
-
-  /* ---------- Error ---------- */
-  errorBox: {
-    marginTop: 20,
-    padding: "12px 16px",
-    background: "rgba(255,23,68,0.1)",
-    border: "1px solid rgba(255,23,68,0.25)",
-    borderRadius: 8,
-    fontSize: 14,
-    color: "#ff8a80",
-    textAlign: "center",
-  },
+// Simple markdown parser for Gemini responses
+const renderMarkdown = (text) => {
+  if (!text) return null;
+  
+  // Split by paragraphs
+  const paragraphs = text.split('\n\n');
+  
+  return paragraphs.map((para, i) => {
+    // Check if it's a list
+    if (para.includes('\n* ') || para.includes('\n- ') || para.startsWith('* ') || para.startsWith('- ')) {
+      const items = para.split('\n').filter(item => item.trim());
+      return (
+        <ul key={i}>
+          {items.map((item, j) => {
+            // Remove bullet point
+            let content = item.replace(/^[\*\-]\s+/, '');
+            // Parse bold text **text**
+            const parts = content.split(/(\*\*.*?\*\*)/g);
+            return (
+              <li key={j}>
+                {parts.map((part, k) => {
+                  if (part.startsWith('**') && part.endsWith('**')) {
+                    return <strong key={k}>{part.slice(2, -2)}</strong>;
+                  }
+                  return part;
+                })}
+              </li>
+            );
+          })}
+        </ul>
+      );
+    }
+    
+    // Regular paragraph, parse bold text
+    const parts = para.split(/(\*\*.*?\*\*)/g);
+    return (
+      <p key={i}>
+        {parts.map((part, k) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={k}>{part.slice(2, -2)}</strong>;
+          }
+          return part;
+        })}
+      </p>
+    );
+  });
 };
 
-/* ------------------------------------------------------------------ */
-/*  Spinner keyframes (injected once)                                  */
-/* ------------------------------------------------------------------ */
-const spinnerCSS = `
-@keyframes pneumo-spin {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-.pneumo-spinner {
-  width: 44px;
-  height: 44px;
-  border: 4px solid rgba(255,255,255,0.1);
-  border-top-color: #00d4ff;
-  border-radius: 50%;
-  animation: pneumo-spin 0.8s linear infinite;
-}
-`;
-
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
 export default function App() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -268,9 +92,34 @@ export default function App() {
   const [error, setError] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef(null);
+  const chatEndRef = useRef(null);
 
-  /* ---------- File handling ---------- */
-  const handleFile = useCallback((f) => {
+  // Chat State
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isChatLoading, setIsChatLoading] = useState(false);
+
+  // Scroll to bottom of chat
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatHistory, isChatLoading]);
+
+  // Initial bot message when results arrive
+  useEffect(() => {
+    if (result) {
+      const initialMsg = `I've analyzed the chest X-ray. The AI model predicts **${result.prediction}** with a confidence of **${(result.confidence * 100).toFixed(1)}%**.\n\nI'm your AI Medical Assistant. Do you have any questions about this result or pneumonia in general?`;
+      
+      setChatHistory([
+        { role: "assistant", text: initialMsg }
+      ]);
+    } else {
+      setChatHistory([]);
+    }
+  }, [result]);
+
+  const handleFile = (f) => {
     if (!f) return;
     const ext = f.name.split(".").pop().toLowerCase();
     if (!["jpg", "jpeg", "png"].includes(ext)) {
@@ -285,23 +134,19 @@ export default function App() {
     setPreview(URL.createObjectURL(f));
     setResult(null);
     setError(null);
-  }, []);
-
-  const onFileChange = (e) => handleFile(e.target.files[0]);
-
-  /* ---------- Drag & Drop ---------- */
-  const onDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-  const onDragLeave = () => setIsDragging(false);
-  const onDrop = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+    setChatHistory([]);
   };
 
-  /* ---------- Analyze ---------- */
+  const handleClear = (e) => {
+    e.stopPropagation();
+    setFile(null);
+    setPreview(null);
+    setResult(null);
+    setError(null);
+    setChatHistory([]);
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
   const handleSubmit = async () => {
     if (!file) return;
     setLoading(true);
@@ -331,127 +176,265 @@ export default function App() {
     }
   };
 
-  /* ---------- Render ---------- */
+  const handleChatSubmit = async (e) => {
+    e.preventDefault();
+    if (!chatInput.trim() || isChatLoading || !result) return;
+
+    const userMsg = chatInput.trim();
+    setChatInput("");
+    
+    // Add user message to UI immediately
+    const updatedHistory = [...chatHistory, { role: "user", text: userMsg }];
+    setChatHistory(updatedHistory);
+    setIsChatLoading(true);
+
+    try {
+      // Send the history (excluding the very first auto-generated message which might not be needed by Gemini or we can send it)
+      // Actually, it's better to send the history so Gemini knows what was discussed.
+      const res = await fetch(`${API_URL}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: userMsg,
+          history: updatedHistory.slice(0, -1), // Everything except the message we just added
+          prediction_context: {
+            prediction: result.prediction,
+            confidence: result.confidence
+          }
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setChatHistory(prev => [...prev, { 
+          role: "assistant", 
+          text: `⚠️ Error: ${data.error || "Failed to get response"}` 
+        }]);
+      } else {
+        setChatHistory(prev => [...prev, { 
+          role: "assistant", 
+          text: data.reply 
+        }]);
+      }
+    } catch (err) {
+      setChatHistory(prev => [...prev, { 
+        role: "assistant", 
+        text: "⚠️ Network error. Could not reach the chat server." 
+      }]);
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
   const isNormal = result?.prediction === "NORMAL";
   const confidencePct = result ? (result.confidence * 100).toFixed(1) : 0;
 
   return (
     <>
-      {/* Inject spinner animation */}
-      <style>{spinnerCSS}</style>
+      <div className="bg-effects"></div>
+      <div className="particles"></div>
 
-      <div style={styles.app}>
-        {/* Header */}
-        <header style={styles.header}>
-          <h1 style={styles.title}>PneumoScan</h1>
-          <p style={styles.subtitle}>
-            AI-Assisted Chest X-Ray Analysis
-          </p>
-        </header>
-
-        {/* Main card */}
-        <div style={styles.card}>
-          {/* Upload zone */}
-          <div
-            style={styles.dropZone(isDragging)}
-            onClick={() => inputRef.current?.click()}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
-            role="button"
-            tabIndex={0}
-            aria-label="Upload chest X-ray image"
-          >
-            <div style={styles.dropIcon}>🫁</div>
-            <p style={styles.dropText}>
-              Drag &amp; drop a chest X-ray here, or click to browse
-            </p>
-            <p style={styles.dropHint}>JPG / PNG — max 5 MB</p>
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".jpg,.jpeg,.png"
-              style={{ display: "none" }}
-              onChange={onFileChange}
-            />
+      <div className="app-container">
+        {/* Navbar */}
+        <nav className="navbar">
+          <div className="nav-brand">
+            <div className="brand-icon">
+              <ActivityIcon />
+            </div>
+            <span className="brand-text">RespiraCheck</span>
           </div>
+        </nav>
 
-          {/* Preview */}
-          {preview && (
-            <div style={styles.previewContainer}>
-              <img
-                src={preview}
-                alt="X-ray preview"
-                style={styles.previewImage}
-              />
-              <p style={styles.fileName}>{file?.name}</p>
-            </div>
-          )}
+        <main className="main-content">
+          {/* Left Column: Scanner */}
+          <section className={`scanner-section ${result ? 'has-results' : ''}`}>
+            <div className="glass-card">
+              <header className="card-header">
+                <h1 className="card-title">Chest X-Ray Analysis</h1>
+                <p className="card-subtitle">Upload a scan for AI-powered pneumonia detection</p>
+              </header>
 
-          {/* Submit */}
-          <button
-            style={styles.button(!file || loading)}
-            disabled={!file || loading}
-            onClick={handleSubmit}
-          >
-            {loading ? "Analyzing…" : "Analyze X-Ray"}
-          </button>
-
-          {/* Loading */}
-          {loading && (
-            <div style={styles.spinnerWrap}>
-              <div className="pneumo-spinner" />
-              <p style={styles.spinnerText}>Analyzing…</p>
-            </div>
-          )}
-
-          {/* Error */}
-          {error && <div style={styles.errorBox}>{error}</div>}
-
-          {/* Results */}
-          {result && (
-            <div style={styles.resultSection}>
-              {/* Badge */}
-              <div style={{ textAlign: "center" }}>
-                <span style={styles.badge(isNormal)}>
-                  {result.prediction}
-                </span>
-              </div>
-
-              {/* Confidence */}
-              <div style={styles.confidenceWrap}>
-                <p style={styles.confidenceLabel}>Confidence</p>
-                <div style={styles.progressBarOuter}>
-                  <div
-                    style={styles.progressBarInner(confidencePct, isNormal)}
-                  />
-                </div>
-                <p style={styles.confidenceValue}>{confidencePct}%</p>
-              </div>
-
-              {/* Grad-CAM */}
-              {result.gradcam_image && (
-                <div style={styles.gradcamWrap}>
-                  <p style={styles.gradcamTitle}>
-                    Grad-CAM++ Explainability Overlay
-                  </p>
-                  <img
-                    src={`data:image/png;base64,${result.gradcam_image}`}
-                    alt="Grad-CAM overlay"
-                    style={styles.gradcamImage}
-                  />
+              {error && (
+                <div className="error-alert">
+                  <AlertCircleIcon />
+                  <span>{error}</span>
                 </div>
               )}
 
-              {/* Disclaimer */}
-              <div style={styles.disclaimer}>
-                ⚠️ This is an AI screening tool. Results must be verified by a
-                qualified radiologist. Do not use for clinical decision-making
-                without professional oversight.
-              </div>
+              {!preview ? (
+                <div
+                  className={`dropzone ${isDragging ? 'dragging' : ''}`}
+                  onClick={() => inputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+                  }}
+                >
+                  <div className="dropzone-icon">
+                    <UploadCloudIcon />
+                  </div>
+                  <h3 className="dropzone-text">Click or drag image to upload</h3>
+                  <p className="dropzone-hint">Supports JPG, PNG up to 5MB</p>
+                  <input
+                    ref={inputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,.png"
+                    style={{ display: "none" }}
+                    onChange={(e) => handleFile(e.target.files[0])}
+                  />
+                </div>
+              ) : (
+                <div className="preview-area">
+                  <img src={preview} alt="X-ray preview" className="preview-image" />
+                  
+                  {loading && (
+                    <div className="loading-overlay">
+                      <div className="spinner"></div>
+                      <p style={{ fontWeight: 500 }}>Analyzing Scan...</p>
+                      <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Applying Grad-CAM++ algorithms</p>
+                    </div>
+                  )}
+
+                  {!loading && !result && (
+                    <div className="preview-overlay">
+                      <span className="file-name">{file?.name}</span>
+                      <button className="remove-btn" onClick={handleClear} title="Remove image">
+                        <XIcon />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!result && (
+                <button
+                  className="btn-primary"
+                  disabled={!file || loading}
+                  onClick={handleSubmit}
+                >
+                  {loading ? "Processing..." : "Analyze Image"}
+                </button>
+              )}
+              
+              {result && (
+                <button
+                  className="btn-primary"
+                  onClick={handleClear}
+                  style={{ background: 'rgba(255,255,255,0.1)' }}
+                >
+                  Analyze New Image
+                </button>
+              )}
+
+              {result && (
+                <div className="results-section">
+                  <div style={{ textAlign: "center" }}>
+                    <div className={`status-badge ${isNormal ? 'status-normal' : 'status-pneumonia'}`}>
+                      {isNormal ? "Normal" : "Pneumonia Detected"}
+                    </div>
+                  </div>
+
+                  <div className="confidence-container">
+                    <div className="confidence-header">
+                      <span>AI Confidence Score</span>
+                      <span className="confidence-value">{confidencePct}%</span>
+                    </div>
+                    <div className="confidence-track">
+                      <div 
+                        className={`confidence-fill ${isNormal ? 'normal' : 'pneumonia'}`}
+                        style={{ width: `${confidencePct}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {result.gradcam_image && (
+                    <div className="gradcam-viewer">
+                      <div className="gradcam-header">
+                        <ScanLineIcon />
+                        <span>Grad-CAM++ Explainability Map</span>
+                      </div>
+                      <img
+                        src={`data:image/png;base64,${result.gradcam_image}`}
+                        alt="Grad-CAM overlay"
+                        className="gradcam-image"
+                      />
+                    </div>
+                  )}
+
+                  <div className="medical-disclaimer">
+                    <ShieldAlertIcon className="disclaimer-icon" />
+                    <p className="disclaimer-text">
+                      <strong>AI Screening Tool:</strong> This system provides AI-assisted analysis and is not a substitute for professional medical diagnosis. Please consult a qualified healthcare provider for clinical decisions.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
+          </section>
+
+          {/* Right Column: Chatbot (Only visible when results are present) */}
+          {result && (
+            <section className="results-section chat-section">
+              <div className="chat-panel">
+                <header className="chat-header">
+                  <div className="ai-avatar">
+                    <BotIcon />
+                  </div>
+                  <div>
+                    <h2 className="chat-title">Medical AI Assistant</h2>
+                    <div className="chat-status">
+                      <div className="status-dot"></div>
+                      Online • Gemini 1.5 Flash
+                    </div>
+                  </div>
+                </header>
+
+                <div className="chat-messages">
+                  {chatHistory.map((msg, idx) => (
+                    <div key={idx} className={`message ${msg.role}`}>
+                      <div className="message-bubble">
+                        {msg.role === 'user' ? msg.text : renderMarkdown(msg.text)}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {isChatLoading && (
+                    <div className="typing-indicator">
+                      <div className="typing-dot"></div>
+                      <div className="typing-dot"></div>
+                      <div className="typing-dot"></div>
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+
+                <div className="chat-input-area">
+                  <form onSubmit={handleChatSubmit} className="chat-form">
+                    <input
+                      type="text"
+                      className="chat-input"
+                      placeholder="Ask about the results or pneumonia..."
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      disabled={isChatLoading}
+                    />
+                    <button 
+                      type="submit" 
+                      className="send-btn" 
+                      disabled={!chatInput.trim() || isChatLoading}
+                    >
+                      <SendIcon />
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </section>
           )}
-        </div>
+        </main>
       </div>
     </>
   );
