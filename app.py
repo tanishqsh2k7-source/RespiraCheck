@@ -31,7 +31,7 @@ from flask_cors import CORS
 from tensorflow.keras.preprocessing.image import img_to_array, load_img
 from PIL import Image
 
-from gradcam import generate_gradcam, overlay_heatmap
+from gradcam import generate_gradcam, overlay_heatmap, safe_load_model
 
 # ---------------------------------------------------------------------------
 # Gemini Configuration
@@ -134,7 +134,7 @@ def _load_model() -> None:
     model_path = _resolve_model_path()
     try:
         print(f"[app] Loading model from {model_path} …")
-        model = tf.keras.models.load_model(model_path)
+        model = safe_load_model(model_path)
         print("[app] Model loaded successfully.")
     except Exception as exc:
         print(f"[ERROR] Failed to load model from {model_path}: {exc}")
