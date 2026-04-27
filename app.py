@@ -1,24 +1,3 @@
-"""
-app.py — Flask REST API for PneumoScan
-
-Serves the best-performing chest X-ray classifier (DenseNet121 or
-EfficientNetB3) with Grad-CAM++ explainability.  The active model is
-determined automatically at startup by reading ``best_model_path.txt``,
-which is written by ``evaluate.py`` after the two-model comparison.
-
-Model resolution order
-----------------------
-    1. ``best_model_path.txt``  (written by evaluate.py — preferred)
-    2. ``MODEL_PATH`` environment variable
-    3. Hard-coded fallback: ``best_densenet_phase2.keras``
-
-Endpoints
----------
-    POST /predict   — Upload a chest X-ray, receive prediction + Grad-CAM overlay
-    POST /chat      — Send a message to the Gemini-powered medical assistant
-    GET  /health    — Liveness probe
-"""
-
 import base64
 import io
 import os
@@ -32,7 +11,7 @@ from PIL import Image
 
 from gradcam import generate_gradcam, overlay_heatmap, safe_load_model
 from dotenv import load_dotenv
-load_dotenv()  # Load environment variables from .env file
+load_dotenv()  
 
 try:
     from google import genai

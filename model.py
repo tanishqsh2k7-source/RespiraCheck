@@ -27,10 +27,6 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 
 
-# ---------------------------------------------------------------------------
-# Phase 1 — Frozen feature-extraction model
-# ---------------------------------------------------------------------------
-
 def build_phase1_model() -> Model:
     """Build a DenseNet121-based binary classifier with frozen backbone.
 
