@@ -68,7 +68,6 @@ const renderMarkdown = (text) => {
         </ul>
       );
     }
-    
     // Regular paragraph, parse bold text
     const parts = para.split(/(\*\*.*?\*\*)/g);
     return (
@@ -234,7 +233,6 @@ export default function App() {
     <>
       <div className="bg-effects"></div>
       <div className="particles"></div>
-
       <div className="app-container">
         {/* Navbar */}
         <nav className="navbar">

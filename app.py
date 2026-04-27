@@ -8,14 +8,12 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from tensorflow.keras.preprocessing.image import img_to_array, load_img
 from PIL import Image
-
 from gradcam import generate_gradcam, overlay_heatmap, safe_load_model
 from dotenv import load_dotenv
 load_dotenv()  
 
 try:
     from google import genai
-
     _GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
     if _GEMINI_API_KEY:
         _gemini_client = genai.Client(api_key=_GEMINI_API_KEY)
@@ -34,7 +32,7 @@ MAX_CONTENT_LENGTH = 5 * 1024 * 1024
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png"}
 LABEL_MAP        = {0: "NORMAL", 1: "PNEUMONIA"}
 
-SYSTEM_PROMPT = """You are PneumoScan AI Assistant, an intelligent medical AI helper integrated into a chest X-ray pneumonia detection system. Your role is to:
+SYSTEM_PROMPT = """You are RespiraCheck AI Assistant, an intelligent medical AI helper integrated into a chest X-ray pneumonia detection system. Your role is to:
 
 1. **Explain predictions**: When given prediction context (the model's classification and confidence), explain what the result means in clear, non-technical language.
 
