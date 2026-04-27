@@ -40,10 +40,6 @@ from sklearn.metrics import (
     recall_score,
 )
 
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
 DENSENET_PATH    = os.environ.get("DENSENET_PATH",    "best_densenet_phase2.keras")
 EFFICIENTNET_PATH = os.environ.get("EFFICIENTNET_PATH", "best_efficientnet_phase2.keras")
 TEST_DIR    = os.path.join("chest_xray", "test")
@@ -51,10 +47,6 @@ IMG_SIZE    = (224, 224)
 BATCH_SIZE  = 32
 TARGET_NAMES = ["NORMAL", "PNEUMONIA"]
 
-
-# ---------------------------------------------------------------------------
-# Result container
-# ---------------------------------------------------------------------------
 
 @dataclass
 class ModelResult:
@@ -72,10 +64,6 @@ class ModelResult:
     pred_classes: np.ndarray
     pred_probs: np.ndarray
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _load_model(path: str) -> tf.keras.Model:
     """Load a .keras model with informative error handling."""
