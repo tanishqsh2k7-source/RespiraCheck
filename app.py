@@ -56,18 +56,6 @@ IMPORTANT RULES:
 
 
 def _resolve_model_path() -> str:
-    """Determine which model file to load.
-
-    Resolution order:
-        1. ``best_model_path.txt`` written by evaluate.py
-        2. ``MODEL_PATH`` environment variable
-        3. Hard-coded fallback (best_densenet_phase2.keras)
-
-    Returns
-    -------
-    str
-        Absolute-or-relative path to the .keras model file.
-    """
     if os.path.isfile(BEST_MODEL_PTR):
         try:
             with open(BEST_MODEL_PTR, "r", encoding="utf-8") as f:
@@ -94,7 +82,6 @@ model      = None
 model_path = None   
 
 def _load_model() -> None:
-    """Resolve and load the best model from disk (called once at startup)."""
     global model, model_path
     model_path = _resolve_model_path()
     try:
@@ -106,27 +93,18 @@ def _load_model() -> None:
         model = None
 
 def _allowed_file(filename: str) -> bool:
-    """Return True if the filename has an allowed image extension."""
     return (
         "." in filename
         and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
     )
 
 def _preprocess_image(file_storage) -> np.ndarray:
-    """Read an uploaded file into a preprocessed numpy array.
-
-    Returns
-    -------
-    np.ndarray
-        Shape (1, 224, 224, 3) normalised to [0, 1].
-    """
     img = Image.open(file_storage.stream).convert("RGB")
     img = img.resize(IMG_SIZE)
     img_array = img_to_array(img) / 255.0
     return np.expand_dims(img_array, axis=0)
 
 def _encode_overlay_to_base64(overlay: np.ndarray) -> str:
-    """Encode an RGB uint8 overlay image to a base64 PNG string."""
     img = Image.fromarray(overlay)
     buffer = io.BytesIO()
     img.save(buffer, format="PNG")
@@ -146,7 +124,6 @@ def health():
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    """Accept a chest X-ray image and return prediction + Grad-CAM overlay."""
     if model is None:
         return jsonify({"error": "Model not loaded. Check server logs."}), 503
 

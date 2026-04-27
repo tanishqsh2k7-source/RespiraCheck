@@ -1,20 +1,3 @@
-"""
-gradcam.py — Grad-CAM++ Explainability Module for PneumoScan
-
-Native Keras 3 / TensorFlow 2.20 implementation of Grad-CAM++.
-No external visualisation libraries required — works directly with the
-.keras models produced by train.py.
-
-Functions
----------
-    generate_gradcam(model, img_array, class_idx)
-        → heatmap array (224, 224) in [0, 1]
-    overlay_heatmap(original_img_array, heatmap, alpha)
-        → RGB overlay uint8 (224, 224, 3)
-    save_gradcam_result(img_path, model, save_path)
-        → saves a side-by-side figure to disk
-"""
-
 import os
 import cv2
 import matplotlib

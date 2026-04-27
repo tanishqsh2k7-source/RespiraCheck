@@ -1,28 +1,3 @@
-"""
-train.py — Two-Phase Training Pipeline for PneumoScan
-
-Trains TWO architectures sequentially:
-    1. DenseNet121   — Phase 1 (frozen, 10 epochs) + Phase 2 (fine-tune, 10 epochs)
-    2. EfficientNetB3 — Phase 1 (frozen, 10 epochs) + Phase 2 (fine-tune, 10 epochs)
-
-Both architectures share:
-    • Identical augmented ImageDataGenerator settings
-    • Same class weights to counter the NORMAL/PNEUMONIA imbalance
-    • Same callbacks: EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
-
-Outputs
--------
-    best_densenet_phase1.keras          — DenseNet121 best Phase 1 checkpoint
-    best_densenet_phase2.keras          — DenseNet121 best Phase 2 checkpoint
-    best_efficientnet_phase1.keras      — EfficientNetB3 best Phase 1 checkpoint
-    best_efficientnet_phase2.keras      — EfficientNetB3 best Phase 2 checkpoint
-    phase1_history.pkl                  — DenseNet121 Phase 1 history
-    phase2_history.pkl                  — DenseNet121 Phase 2 history
-    efficientnet_phase1_history.pkl     — EfficientNetB3 Phase 1 history
-    efficientnet_phase2_history.pkl     — EfficientNetB3 Phase 2 history
-    training_curves_comparison.png      — 4×2 side-by-side comparison plot
-"""
-
 import os
 import pickle
 
@@ -46,18 +21,10 @@ from model import (
     build_efficientnet_phase2_model,
 )
 
-
-# ---------------------------------------------------------------------------
-# Hyper-parameters
-# ---------------------------------------------------------------------------
 IMG_SIZE = (224, 224)
 BATCH_SIZE = 32
 EPOCHS_PHASE1 = 10
 EPOCHS_PHASE2 = 10
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _load_pkl(path: str):
     """Load a pickle file with an informative error on failure."""
@@ -71,14 +38,12 @@ def _load_pkl(path: str):
     except Exception as exc:
         raise RuntimeError(f"Error loading {path}: {exc}") from exc
 
-
 def _build_dataframe(file_list: list[tuple[str, int]]) -> pd.DataFrame:
     """Convert a list of (filepath, label) tuples to a DataFrame suitable
     for ``flow_from_dataframe``."""
     df = pd.DataFrame(file_list, columns=["filepath", "label"])
-    df["label"] = df["label"].astype(str)  # ImageDataGenerator expects str
+    df["label"] = df["label"].astype(str)
     return df
-
 
 def _build_generators(
     train_df: pd.DataFrame,
@@ -122,18 +87,7 @@ def _build_generators(
 
     return train_gen, val_gen
 
-
 def _make_callbacks(phase: int, model_name: str = "densenet") -> list:
-    """Create a fresh set of Keras callbacks for the given phase and model.
-
-    Parameters
-    ----------
-    phase : int
-        Training phase (1 or 2).
-    model_name : str
-        Short identifier used in the checkpoint filename
-        (e.g. ``'densenet'`` or ``'efficientnet'``).
-    """
     checkpoint_path = f"best_{model_name}_phase{phase}.keras"
     return [
         EarlyStopping(
@@ -160,18 +114,12 @@ def _make_callbacks(phase: int, model_name: str = "densenet") -> list:
 
 
 def _save_history(history, path: str) -> None:
-    """Persist a Keras History.history dict as a pickle file."""
     try:
         with open(path, "wb") as f:
             pickle.dump(history.history, f)
         print(f"  ✓ History saved to {path}")
     except IOError as exc:
         print(f"[ERROR] Could not save history to {path}: {exc}")
-
-
-# ---------------------------------------------------------------------------
-# Plotting
-# ---------------------------------------------------------------------------
 
 def _plot_comparison_curves(
     dn_hist1: dict,
@@ -180,11 +128,8 @@ def _plot_comparison_curves(
     eff_hist2: dict,
     save_path: str = "training_curves_comparison.png",
 ) -> None:
-    """Create a 4×2 subplot comparing DenseNet121 and EfficientNetB3
-    across both training phases (Accuracy and Loss per row).
-
+    """
     Layout
-    ------
     Row 0 — Phase 1 Accuracy  : DenseNet121 (left) | EfficientNetB3 (right)
     Row 1 — Phase 1 Loss      : DenseNet121 (left) | EfficientNetB3 (right)
     Row 2 — Phase 2 Accuracy  : DenseNet121 (left) | EfficientNetB3 (right)
@@ -201,7 +146,6 @@ def _plot_comparison_curves(
     )
 
     def _fill_row(row: int, hist: dict, phase: int, model_label: str, colors: tuple) -> None:
-        """Populate one accuracy cell and one loss cell for a given row."""
         # Accuracy (column 0 = DenseNet, column 1 = EfficientNet)
         col = 0 if "DenseNet" in model_label else 1
         ax = axes[row, col]
@@ -245,17 +189,9 @@ def _plot_comparison_curves(
     finally:
         plt.close(fig)
 
-
-# ---------------------------------------------------------------------------
 # Main training loop
-# ---------------------------------------------------------------------------
-
 def main() -> None:
-    print("=" * 60)
-    print("PneumoScan — Training Pipeline")
-    print("=" * 60)
-
-    # Load data splits and class weights --------------------------------
+    print("PneumoScan — Training Pipeline\n")
     print("\n[LOAD] Loading data splits and class weights …")
     train_files = _load_pkl("train_files.pkl")
     val_files = _load_pkl("val_files.pkl")
@@ -271,12 +207,9 @@ def main() -> None:
     train_gen, val_gen = _build_generators(train_df, val_df)
     print(f"  • Generator class indices: {train_gen.class_indices}")
 
-    # ===================================================================
     # DENSENET121 — PHASE 1 — Feature Extraction
-    # ===================================================================
-    print("\n" + "=" * 60)
+    print("\n")
     print("[DenseNet121] PHASE 1 — Feature Extraction (frozen backbone)")
-    print("=" * 60)
 
     dn_model = build_phase1_model()
     callbacks_dn1 = _make_callbacks(phase=1, model_name="densenet")
@@ -293,12 +226,9 @@ def main() -> None:
     best_dn_auc1 = max(dn_history1.history.get("val_auc", [0]))
     print(f"\n[DenseNet121] Phase 1 complete. Best val_auc: {best_dn_auc1:.4f}")
 
-    # ===================================================================
     # DENSENET121 — PHASE 2 — Fine-Tuning
-    # ===================================================================
-    print("\n" + "=" * 60)
+    print("\n")
     print("[DenseNet121] PHASE 2 — Fine-Tuning (last 30 layers)")
-    print("=" * 60)
 
     dn1_ckpt = "best_densenet_phase1.keras"
     try:
@@ -310,7 +240,7 @@ def main() -> None:
 
     dn_model = build_phase2_model(dn_model)
     callbacks_dn2 = _make_callbacks(phase=2, model_name="densenet")
-    train_gen, val_gen = _build_generators(train_df, val_df)  # reset iterators
+    train_gen, val_gen = _build_generators(train_df, val_df) 
 
     dn_history2 = dn_model.fit(
         train_gen,
@@ -327,16 +257,11 @@ def main() -> None:
     # Free DenseNet memory before starting EfficientNet
     del dn_model
     tf.keras.backend.clear_session()
-
-    # Rebuild generators for the EfficientNet runs
     train_gen, val_gen = _build_generators(train_df, val_df)
-
-    # ===================================================================
+    
     # EFFICIENTNETB3 — PHASE 1 — Feature Extraction
-    # ===================================================================
-    print("\n" + "=" * 60)
+    print("\n")
     print("[EfficientNetB3] PHASE 1 — Feature Extraction (frozen backbone)")
-    print("=" * 60)
 
     eff_model = build_efficientnet_phase1_model()
     callbacks_eff1 = _make_callbacks(phase=1, model_name="efficientnet")
@@ -353,12 +278,8 @@ def main() -> None:
     best_eff_auc1 = max(eff_history1.history.get("val_auc", [0]))
     print(f"\n[EfficientNetB3] Phase 1 complete. Best val_auc: {best_eff_auc1:.4f}")
 
-    # ===================================================================
-    # EFFICIENTNETB3 — PHASE 2 — Fine-Tuning
-    # ===================================================================
-    print("\n" + "=" * 60)
+    print("\n" )
     print("[EfficientNetB3] PHASE 2 — Fine-Tuning (last 30 layers)")
-    print("=" * 60)
 
     eff1_ckpt = "best_efficientnet_phase1.keras"
     try:
@@ -384,9 +305,6 @@ def main() -> None:
     best_eff_auc2 = max(eff_history2.history.get("val_auc", [0]))
     print(f"\n[EfficientNetB3] Phase 2 complete. Best val_auc: {best_eff_auc2:.4f}")
 
-    # ===================================================================
-    # 4×2 Comparison Plot
-    # ===================================================================
     print("\n[PLOT] Generating 4×2 comparison training curves …")
     _plot_comparison_curves(
         dn_hist1=dn_history1.history,
@@ -395,7 +313,7 @@ def main() -> None:
         eff_hist2=eff_history2.history,
     )
 
-    print("\n" + "=" * 60)
+    print("\n")
     print("Summary:")
     print(f"  DenseNet121   Phase 2 best val_auc : {best_dn_auc2:.4f}")
     print(f"  EfficientNetB3 Phase 2 best val_auc: {best_eff_auc2:.4f}")

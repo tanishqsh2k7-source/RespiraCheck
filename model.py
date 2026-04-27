@@ -1,21 +1,3 @@
-"""
-model.py — DenseNet121 & EfficientNetB3 Binary Classifiers for PneumoScan
-
-Provides four builder functions implementing a two-phase transfer-learning
-strategy for two backbone architectures:
-
-DenseNet121
-    Phase 1  – Fully frozen backbone; head trained from scratch.
-    Phase 2  – Last 30 layers unfrozen; low-LR fine-tuning.
-
-EfficientNetB3
-    Phase 1  – Fully frozen backbone; identical head trained from scratch.
-    Phase 2  – Last 30 layers unfrozen; low-LR fine-tuning.
-
-Both architectures share the same classification head:
-    GlobalAveragePooling2D → Dense(512, relu) → Dropout(0.5) → Dense(1, sigmoid)
-"""
-
 import tensorflow as tf
 from tensorflow.keras.applications import DenseNet121, EfficientNetB3
 from tensorflow.keras.layers import (
@@ -26,19 +8,11 @@ from tensorflow.keras.layers import (
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 
-
 def build_phase1_model() -> Model:
     """Build a DenseNet121-based binary classifier with frozen backbone.
-
-    Architecture
-    ------------
+    Architecture:-
     DenseNet121 (frozen) → GAP → Dense(512, relu) → Dropout(0.5) →
     Dense(1, sigmoid)
-
-    Returns
-    -------
-    tf.keras.Model
-        Compiled model ready for Phase 1 training.
     """
     print("[model] Building Phase 1 model (frozen DenseNet121) …")
 
@@ -84,31 +58,10 @@ def build_phase1_model() -> Model:
 
     return model
 
-
-# ---------------------------------------------------------------------------
 # Phase 2 — Partial fine-tuning
-# ---------------------------------------------------------------------------
-
 def build_phase2_model(model: Model) -> Model:
-    """Unfreeze the last 30 layers of DenseNet121 for fine-tuning.
-
-    Parameters
-    ----------
-    model : tf.keras.Model
-        A trained Phase 1 model (output of ``build_phase1_model``).
-
-    Returns
-    -------
-    tf.keras.Model
-        Recompiled model ready for Phase 2 fine-tuning.
-    """
     print("[model] Building Phase 2 model (unfreezing last 30 layers) …")
 
-    # Identify the DenseNet121 base (first sub-model or all layers before head)
-    # DenseNet121 layers are embedded directly in the model.
-    # We unfreeze the last 30 layers of the ENTIRE model, which mainly
-    # affects the tail of the DenseNet backbone + head (head is already
-    # trainable).
     total_layers = len(model.layers)
 
     # Freeze everything first …
@@ -118,7 +71,6 @@ def build_phase2_model(model: Model) -> Model:
     # … then unfreeze the last 30 layers
     num_unfreeze = min(30, total_layers)
     for layer in model.layers[-num_unfreeze:]:
-        # Skip BatchNormalization layers to keep running stats stable
         if isinstance(layer, tf.keras.layers.BatchNormalization):
             layer.trainable = False
         else:
@@ -142,26 +94,14 @@ def build_phase2_model(model: Model) -> Model:
 
     return model
 
-
-# ---------------------------------------------------------------------------
 # EfficientNetB3 Phase 1 — Frozen feature-extraction model
-# ---------------------------------------------------------------------------
-
 def build_efficientnet_phase1_model() -> Model:
     """Build an EfficientNetB3-based binary classifier with frozen backbone.
-
-    Architecture
-    ------------
+    Architecture:-
     EfficientNetB3 (frozen) → GAP → Dense(512, relu) → Dropout(0.5) →
     Dense(1, sigmoid)
-
-    Returns
-    -------
-    tf.keras.Model
-        Compiled model ready for Phase 1 training.
     """
     print("[model] Building Phase 1 model (frozen EfficientNetB3) …")
-
     try:
         base_model = EfficientNetB3(
             weights="imagenet",
@@ -208,24 +148,8 @@ def build_efficientnet_phase1_model() -> Model:
 
     return model
 
-
-# ---------------------------------------------------------------------------
 # EfficientNetB3 Phase 2 — Partial fine-tuning
-# ---------------------------------------------------------------------------
-
 def build_efficientnet_phase2_model(model: Model) -> Model:
-    """Unfreeze the last 30 layers of EfficientNetB3 for fine-tuning.
-
-    Parameters
-    ----------
-    model : tf.keras.Model
-        A trained EfficientNetB3 Phase 1 model.
-
-    Returns
-    -------
-    tf.keras.Model
-        Recompiled model ready for Phase 2 fine-tuning.
-    """
     print("[model] Building EfficientNetB3 Phase 2 model (unfreezing last 30 layers) …")
 
     total_layers = len(model.layers)
@@ -259,23 +183,3 @@ def build_efficientnet_phase2_model(model: Model) -> Model:
     print("[model] EfficientNetB3 Phase 2 model recompiled.\n")
 
     return model
-
-
-# ---------------------------------------------------------------------------
-# Quick smoke-test when run directly
-# ---------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    print("Smoke-test: building DenseNet121 Phase 1 model …")
-    m = build_phase1_model()
-    m.summary(print_fn=lambda s: None)  # suppress for brevity
-    print("Smoke-test: converting DenseNet121 to Phase 2 …")
-    m = build_phase2_model(m)
-    print("DenseNet121 smoke-test passed ✓\n")
-
-    print("Smoke-test: building EfficientNetB3 Phase 1 model …")
-    e = build_efficientnet_phase1_model()
-    e.summary(print_fn=lambda s: None)
-    print("Smoke-test: converting EfficientNetB3 to Phase 2 …")
-    e = build_efficientnet_phase2_model(e)
-    print("EfficientNetB3 smoke-test passed ✓")

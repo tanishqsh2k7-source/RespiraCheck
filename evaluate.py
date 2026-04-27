@@ -1,26 +1,5 @@
-"""
-evaluate.py — Dual-Model Evaluation & Comparison for PneumoScan
-
-Loads both final Phase 2 models (DenseNet121 and EfficientNetB3) and
-evaluates each on the same held-out test set.  Produces per-model artefacts
-as well as side-by-side comparison plots and a structured comparison table.
-
-Outputs
--------
-Per-model
-    confusion_matrix_densenet.png       — Confusion matrix (DenseNet121)
-    confusion_matrix_efficientnet.png   — Confusion matrix (EfficientNetB3)
-
-Combined
-    roc_curve_comparison.png            — Both ROC curves on one figure
-    pr_curve_comparison.png             — Both PR curves on one figure
-    evaluation_report.txt               — Full report + comparison table
-    best_model_path.txt                 — Path to the winning model (read by app.py)
-"""
-
 import os
 from dataclasses import dataclass
-
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -47,10 +26,8 @@ IMG_SIZE    = (224, 224)
 BATCH_SIZE  = 32
 TARGET_NAMES = ["NORMAL", "PNEUMONIA"]
 
-
 @dataclass
 class ModelResult:
-    """Holds all evaluation metrics for a single model."""
     name: str
     path: str
     test_loss: float
@@ -66,7 +43,7 @@ class ModelResult:
 
 
 def _load_model(path: str) -> tf.keras.Model:
-    """Load a .keras model with informative error handling."""
+    #Load a .keras model with informative error handling.
     print(f"[LOAD] Loading model from {path} …")
     try:
         model = tf.keras.models.load_model(path)
@@ -78,9 +55,7 @@ def _load_model(path: str) -> tf.keras.Model:
             "Make sure you have run train.py first."
         ) from exc
 
-
 def _build_test_generator(test_dir: str):
-    """Create a non-shuffled test generator from the test directory."""
     datagen = ImageDataGenerator(rescale=1.0 / 255)
     gen = datagen.flow_from_directory(
         directory=test_dir,
@@ -91,9 +66,7 @@ def _build_test_generator(test_dir: str):
     )
     return gen
 
-
 def _evaluate_model(model: tf.keras.Model, model_name: str, model_path: str) -> ModelResult:
-    """Run full evaluation for one model and return a ModelResult."""
     # Build a fresh generator so the cursor is at position 0
     test_gen = _build_test_generator(TEST_DIR)
     print(f"\n  • Test samples : {test_gen.samples}")
@@ -141,13 +114,7 @@ def _evaluate_model(model: tf.keras.Model, model_name: str, model_path: str) -> 
         pred_probs=pred_probs,
     )
 
-
-# ---------------------------------------------------------------------------
-# Plotting helpers
-# ---------------------------------------------------------------------------
-
 def _plot_confusion_matrix(result: ModelResult, save_path: str) -> None:
-    """Plot and save a labelled seaborn confusion-matrix heatmap."""
     cm = confusion_matrix(result.true_classes, result.pred_classes)
     fig, ax = plt.subplots(figsize=(7, 6))
     sns.heatmap(
@@ -168,9 +135,7 @@ def _plot_confusion_matrix(result: ModelResult, save_path: str) -> None:
     plt.close(fig)
     print(f"  ✓ Confusion matrix saved to {save_path}")
 
-
 def _plot_roc_comparison(dn: ModelResult, eff: ModelResult, save_path: str) -> None:
-    """Plot both ROC curves on the same axes."""
     fpr_dn,  tpr_dn,  _ = roc_curve(dn.true_classes,  dn.pred_probs)
     fpr_eff, tpr_eff, _ = roc_curve(eff.true_classes, eff.pred_probs)
 
@@ -190,9 +155,7 @@ def _plot_roc_comparison(dn: ModelResult, eff: ModelResult, save_path: str) -> N
     plt.close(fig)
     print(f"  ✓ ROC comparison saved to {save_path}")
 
-
 def _plot_pr_comparison(dn: ModelResult, eff: ModelResult, save_path: str) -> None:
-    """Plot both Precision-Recall curves on the same axes."""
     prec_dn,  rec_dn,  _ = precision_recall_curve(dn.true_classes,  dn.pred_probs)
     prec_eff, rec_eff, _ = precision_recall_curve(eff.true_classes, eff.pred_probs)
 
@@ -211,20 +174,13 @@ def _plot_pr_comparison(dn: ModelResult, eff: ModelResult, save_path: str) -> No
     plt.close(fig)
     print(f"  ✓ PR comparison saved to {save_path}")
 
-
-# ---------------------------------------------------------------------------
-# Report helpers
-# ---------------------------------------------------------------------------
-
 def _comparison_table(dn: ModelResult, eff: ModelResult) -> str:
-    """Return a formatted side-by-side comparison table string."""
     col_w = 15
 
     header = (
         f"{'Metric':<30} | {'DenseNet121':>{col_w}} | {'EfficientNetB3':>{col_w}}\n"
         + "-" * (30 + col_w * 2 + 6) + "\n"
     )
-
     rows = [
         ("Test Accuracy",        f"{dn.test_acc:.4f}",         f"{eff.test_acc:.4f}"),
         ("Pneumonia Recall",     f"{dn.pneumonia_recall:.4f}",  f"{eff.pneumonia_recall:.4f}"),
@@ -241,9 +197,7 @@ def _comparison_table(dn: ModelResult, eff: ModelResult) -> str:
     )
     return header + body
 
-
 def _per_model_section(result: ModelResult) -> str:
-    """Return the full classification-report block for one model."""
     cls_report = classification_report(
         result.true_classes, result.pred_classes, target_names=TARGET_NAMES
     )
@@ -263,61 +217,36 @@ def _per_model_section(result: ModelResult) -> str:
         f"{confusion_matrix(result.true_classes, result.pred_classes)}\n"
     )
 
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
 def main() -> None:
-    print("=" * 60)
-    print("PneumoScan — Dual-Model Evaluation & Comparison")
-    print("=" * 60)
-
-    # ------------------------------------------------------------------
-    # Load both models
-    # ------------------------------------------------------------------
+    print("\nPneumoScan — Dual-Model Evaluation & Comparison :\n")
     dn_model  = _load_model(DENSENET_PATH)
     eff_model = _load_model(EFFICIENTNET_PATH)
 
-    # ------------------------------------------------------------------
     # Evaluate each model
-    # ------------------------------------------------------------------
-    print("\n" + "=" * 60)
-    print("Evaluating DenseNet121 …")
-    print("=" * 60)
+    print("\n")
+    print("Evaluating DenseNet121 …\n")
     dn_result = _evaluate_model(dn_model, "DenseNet121", DENSENET_PATH)
-
-    print("\n" + "=" * 60)
-    print("Evaluating EfficientNetB3 …")
-    print("=" * 60)
+    print("\n")
+    print("Evaluating EfficientNetB3 …\n")
     eff_result = _evaluate_model(eff_model, "EfficientNetB3", EFFICIENTNET_PATH)
 
-    # ------------------------------------------------------------------
     # Per-model confusion matrices
-    # ------------------------------------------------------------------
     print("\n[PLOT] Saving per-model confusion matrices …")
     _plot_confusion_matrix(dn_result,  "confusion_matrix_densenet.png")
     _plot_confusion_matrix(eff_result, "confusion_matrix_efficientnet.png")
 
-    # ------------------------------------------------------------------
     # Combined comparison plots
-    # ------------------------------------------------------------------
     print("\n[PLOT] Saving ROC and PR comparison curves …")
     _plot_roc_comparison(dn_result, eff_result, "roc_curve_comparison.png")
     _plot_pr_comparison(dn_result,  eff_result, "pr_curve_comparison.png")
 
-    # ------------------------------------------------------------------
     # Comparison table
-    # ------------------------------------------------------------------
     table = _comparison_table(dn_result, eff_result)
-    print("\n" + "=" * 60)
-    print("Side-by-Side Comparison")
-    print("=" * 60)
+    print("\n")
+    print("Side-by-Side Comparison\n")
     print(table)
 
-    # ------------------------------------------------------------------
     # Determine best model (by ROC-AUC)
-    # ------------------------------------------------------------------
     if dn_result.roc_auc >= eff_result.roc_auc:
         best_result = dn_result
     else:
@@ -329,7 +258,6 @@ def main() -> None:
     )
     print(verdict)
 
-    # Write best model path so app.py can read it at startup
     try:
         with open("best_model_path.txt", "w", encoding="utf-8") as f:
             f.write(best_result.path)
@@ -337,9 +265,6 @@ def main() -> None:
     except IOError as exc:
         print(f"[ERROR] Could not write best_model_path.txt: {exc}")
 
-    # ------------------------------------------------------------------
-    # Per-model target lines
-    # ------------------------------------------------------------------
     for res in (dn_result, eff_result):
         acc_met    = "✓" if res.test_acc          > 0.80 else "✗"
         recall_met = "✓" if res.pneumonia_recall  > 0.93 else "✗"
@@ -349,36 +274,25 @@ def main() -> None:
             f"Pneumonia Recall>93%: {recall_met} ({res.pneumonia_recall:.2%}) | "
             f"AUC>0.92: {auc_met} ({res.roc_auc:.4f})"
         )
-
-    # ------------------------------------------------------------------
     # Save full evaluation report
-    # ------------------------------------------------------------------
     report_path = "evaluation_report.txt"
     try:
         with open(report_path, "w", encoding="utf-8") as f:
-            f.write("PneumoScan — Dual-Model Evaluation Report\n")
+            f.write("Respiracheck — Dual-Model Evaluation Report\n")
             f.write("=" * 60 + "\n\n")
-
-            # Per-model sections
             f.write(_per_model_section(dn_result))
             f.write(_per_model_section(eff_result))
-
-            # Comparison table
             f.write("\n\nSide-by-Side Comparison\n")
             f.write("=" * 60 + "\n")
             f.write(table + "\n")
-
-            # Verdict
             f.write(verdict + "\n")
 
         print(f"\n  ✓ Full report saved to {report_path}")
     except IOError as exc:
         print(f"[ERROR] Could not save report: {exc}")
 
-    print("\n" + "=" * 60)
+    print("\n")
     print("Evaluation complete.")
-    print("=" * 60)
-
 
 if __name__ == "__main__":
     main()
