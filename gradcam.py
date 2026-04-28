@@ -6,21 +6,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
 IMG_SIZE = (224, 224)
 TARGET_LAYER_NAME = "conv5_block16_2_conv"  # last conv in DenseNet121
 LABEL_MAP = {0: "NORMAL", 1: "PNEUMONIA"}
-
-# ---------------------------------------------------------------------------
-# Keras version-compatibility shim
-# Models saved by a different Keras 3.x minor version may include extra
-# serialisation keys (renorm*, quantization_config, synchronized, optional)
-# that the currently installed Keras 3.11 does not recognise.
-# We strip them at load time so the model can be deserialised cleanly.
-# ---------------------------------------------------------------------------
 _BATCH_NORM_STRIP = {"renorm", "renorm_clipping", "renorm_momentum", "synchronized"}
 _DENSE_STRIP = {"quantization_config"}
 _INPUT_LAYER_STRIP = {"optional"}
@@ -69,16 +57,7 @@ def safe_load_model(path: str) -> tf.keras.Model:
 
     return model
 
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
 def _find_last_conv_layer(model: tf.keras.Model) -> str:
-    """Return the name of the last Conv2D layer in the model.
-
-    Tries ``TARGET_LAYER_NAME`` first; falls back to a reverse scan.
-    """
     layer_names = [l.name for l in model.layers]
 
     if TARGET_LAYER_NAME in layer_names:
@@ -94,13 +73,6 @@ def _find_last_conv_layer(model: tf.keras.Model) -> str:
 
 
 def _preprocess_image(img_path: str) -> np.ndarray:
-    """Load and preprocess an image for inference.
-
-    Returns
-    -------
-    np.ndarray
-        Shape (1, 224, 224, 3), normalised to [0, 1].
-    """
     try:
         img = tf.keras.utils.load_img(img_path, target_size=IMG_SIZE)
     except Exception as exc:
@@ -121,24 +93,6 @@ def generate_gradcam(
     img_array: np.ndarray,
     class_idx: int = 0,
 ) -> np.ndarray:
-    """Generate a Grad-CAM++ heatmap for a given image.
-
-    Uses native TensorFlow GradientTape — no external libraries needed.
-
-    Parameters
-    ----------
-    model : tf.keras.Model
-        Trained binary classifier.
-    img_array : np.ndarray
-        Preprocessed image of shape ``(1, 224, 224, 3)`` in [0, 1].
-    class_idx : int
-        Target class index (0 or 1).
-
-    Returns
-    -------
-    np.ndarray
-        Heatmap of shape ``(224, 224)`` with float values in [0, 1].
-    """
     target_layer_name = _find_last_conv_layer(model)
 
     # Build a sub-model that outputs both the conv layer activations and
@@ -239,23 +193,7 @@ def overlay_heatmap(
     heatmap: np.ndarray,
     alpha: float = 0.4,
 ) -> np.ndarray:
-    """Overlay a heatmap on the original image using JET colourmap.
-
-    Parameters
-    ----------
-    original_img_array : np.ndarray
-        RGB image of shape ``(224, 224, 3)`` with float values in [0, 1].
-    heatmap : np.ndarray
-        Heatmap of shape ``(224, 224)`` with float values in [0, 1].
-    alpha : float
-        Blending factor for the heatmap overlay.
-
-    Returns
-    -------
-    np.ndarray
-        Blended RGB image of shape ``(224, 224, 3)`` as uint8.
-    """
-    # Convert heatmap to uint8 and apply JET colourmap
+        # Convert heatmap to uint8 and apply JET colourmap
     heatmap_uint8 = np.uint8(255 * heatmap)
     jet_heatmap = cv2.applyColorMap(heatmap_uint8, cv2.COLORMAP_JET)
     jet_heatmap = cv2.cvtColor(jet_heatmap, cv2.COLOR_BGR2RGB)  # BGR → RGB
@@ -273,20 +211,6 @@ def save_gradcam_result(
     model: tf.keras.Model,
     save_path: str,
 ) -> None:
-    """Load an image, run Grad-CAM++, and save a side-by-side figure.
-
-    The figure shows [Original X-ray | Grad-CAM++ Overlay] with the
-    predicted label and confidence score as the suptitle.
-
-    Parameters
-    ----------
-    img_path : str
-        Path to the input chest X-ray image.
-    model : tf.keras.Model
-        Trained PneumoScan model.
-    save_path : str
-        Output path for the saved figure.
-    """
     # Preprocess
     img_array = _preprocess_image(img_path)         # (1, 224, 224, 3)
     original = img_array[0]                          # (224, 224, 3)

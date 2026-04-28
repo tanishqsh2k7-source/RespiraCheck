@@ -52,7 +52,6 @@ IMPORTANT RULES:
 - If the prediction is NORMAL, reassure the user but still recommend regular checkups.
 - If the prediction is PNEUMONIA, be calm and informative, not alarming."""
 
-
 def _resolve_model_path() -> str:
     if os.path.isfile(BEST_MODEL_PTR):
         try:
@@ -173,21 +172,6 @@ def predict():
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    """Gemini-powered medical assistant chat endpoint.
-    Expects JSON body:
-    {
-        "message": "user's message text",
-        "history": [{"role": "user"|"assistant", "text": "..."}],
-        "prediction_context": {
-            "prediction": "NORMAL"|"PNEUMONIA",
-            "confidence": 0.95
-        }
-    }
-    Returns JSON:
-    {
-        "reply": "Gemini's response text"
-    }
-    """
     if _gemini_client is None:
         return jsonify({
             "error": "Chat is unavailable. Gemini API key not configured."
@@ -225,7 +209,7 @@ def chat():
     full_prompt += f"User: {user_message}\n\nAssistant:"
     try:
         response = _gemini_client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.1-flash-lite-preview',
             contents=full_prompt,
         )
         reply_text = response.text
