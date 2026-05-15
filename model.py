@@ -4,16 +4,12 @@ from tensorflow.keras.layers import (
     Dense,
     Dropout,
     GlobalAveragePooling2D,
+    Input,
 )
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 
 def build_phase1_model() -> Model:
-    """Build a DenseNet121-based binary classifier with frozen backbone.
-    Architecture:-
-    DenseNet121 (frozen) → GAP → Dense(512, relu) → Dropout(0.5) →
-    Dense(1, sigmoid)
-    """
     print("[model] Building Phase 1 model (frozen DenseNet121) …")
 
     try:
@@ -42,7 +38,12 @@ def build_phase1_model() -> Model:
 
     model.compile(
         optimizer=Adam(learning_rate=1e-4),
-        loss="binary_crossentropy",
+        loss=tf.keras.losses.BinaryFocalCrossentropy(
+            apply_class_balancing=True,
+            alpha=0.25,
+            gamma=2.0,
+            from_logits=False,
+        ),
         metrics=[
             "accuracy",
             tf.keras.metrics.AUC(name="auc"),
@@ -78,7 +79,12 @@ def build_phase2_model(model: Model) -> Model:
 
     model.compile(
         optimizer=Adam(learning_rate=1e-5),
-        loss="binary_crossentropy",
+        loss=tf.keras.losses.BinaryFocalCrossentropy(
+            apply_class_balancing=True,
+            alpha=0.25,
+            gamma=2.0,
+            from_logits=False,
+        ),
         metrics=[
             "accuracy",
             tf.keras.metrics.AUC(name="auc"),
@@ -96,18 +102,24 @@ def build_phase2_model(model: Model) -> Model:
 
 # EfficientNetB3 Phase 1 — Frozen feature-extraction model
 def build_efficientnet_phase1_model() -> Model:
-    """Build an EfficientNetB3-based binary classifier with frozen backbone.
-    Architecture:-
-    EfficientNetB3 (frozen) → GAP → Dense(512, relu) → Dropout(0.5) →
-    Dense(1, sigmoid)
-    """
     print("[model] Building Phase 1 model (frozen EfficientNetB3) …")
     try:
+        # Keras 3.11.3 bug: EfficientNetB3(weights="imagenet") fails with a
+        # shape mismatch in stem_conv (expects (3,3,1,40) instead of (3,3,3,40)).
+        # Workaround: build architecture without weights, then load the cached
+        # ImageNet .h5 file manually with by_name=True.
         base_model = EfficientNetB3(
-            weights="imagenet",
+            weights=None,
             include_top=False,
             input_shape=(224, 224, 3),
         )
+        weights_path = tf.keras.utils.get_file(
+            "efficientnetb3_notop.h5",
+            "https://storage.googleapis.com/keras-applications/efficientnetb3_notop.h5",
+            cache_subdir="models",
+        )
+        base_model.load_weights(weights_path, by_name=True)
+        print("  • ImageNet weights loaded (by_name workaround)")
     except Exception as exc:
         raise RuntimeError(
             f"Failed to load EfficientNetB3 pre-trained weights: {exc}"
@@ -132,7 +144,12 @@ def build_efficientnet_phase1_model() -> Model:
 
     model.compile(
         optimizer=Adam(learning_rate=1e-4),
-        loss="binary_crossentropy",
+        loss=tf.keras.losses.BinaryFocalCrossentropy(
+            apply_class_balancing=True,
+            alpha=0.25,
+            gamma=2.0,
+            from_logits=False,
+        ),
         metrics=[
             "accuracy",
             tf.keras.metrics.AUC(name="auc"),
@@ -168,7 +185,12 @@ def build_efficientnet_phase2_model(model: Model) -> Model:
 
     model.compile(
         optimizer=Adam(learning_rate=1e-5),
-        loss="binary_crossentropy",
+        loss=tf.keras.losses.BinaryFocalCrossentropy(
+            apply_class_balancing=True,
+            alpha=0.25,
+            gamma=2.0,
+            from_logits=False,
+        ),
         metrics=[
             "accuracy",
             tf.keras.metrics.AUC(name="auc"),

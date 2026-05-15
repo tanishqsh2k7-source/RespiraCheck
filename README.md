@@ -79,7 +79,6 @@ To enable the AI Chatbot, create a file named `.env` in the root directory:
 # .env
 GEMINI_API_KEY=your_actual_api_key_here
 ```
-*(Get a free API key from Google AI Studio)*
 
 ### 3. Dataset Placement
 

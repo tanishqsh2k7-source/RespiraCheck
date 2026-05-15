@@ -2,7 +2,7 @@ import os
 import pickle
 
 import matplotlib
-matplotlib.use("Agg")  # non-interactive backend — must precede pyplot import
+matplotlib.use("Agg") 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -49,9 +49,7 @@ def _build_generators(
     train_df: pd.DataFrame,
     val_df: pd.DataFrame,
 ):
-    """Return (train_generator, val_generator) using the prescribed
-    augmentation settings."""
-
+    
     train_datagen = ImageDataGenerator(
         rescale=1.0 / 255,
         rotation_range=20,
@@ -111,7 +109,6 @@ def _make_callbacks(phase: int, model_name: str = "densenet") -> list:
             verbose=1,
         ),
     ]
-
 
 def _save_history(history, path: str) -> None:
     try:
@@ -192,14 +189,13 @@ def _plot_comparison_curves(
 # Main training loop
 def main() -> None:
     print("PneumoScan — Training Pipeline\n")
-    print("\n[LOAD] Loading data splits and class weights …")
+    print("\n[LOAD] Loading data splits …")
     train_files = _load_pkl("train_files.pkl")
     val_files = _load_pkl("val_files.pkl")
-    class_weights = _load_pkl("class_weights.pkl")
 
     print(f"  • Train samples  : {len(train_files)}")
     print(f"  • Val samples    : {len(val_files)}")
-    print(f"  • Class weights  : {class_weights}")
+    print("  • Class imbalance handled by Focal Loss (α=0.25, γ=2.0)")
 
     train_df = _build_dataframe(train_files)
     val_df = _build_dataframe(val_files)
@@ -218,7 +214,6 @@ def main() -> None:
         train_gen,
         epochs=EPOCHS_PHASE1,
         validation_data=val_gen,
-        class_weight=class_weights,
         callbacks=callbacks_dn1,
         verbose=1,
     )
@@ -246,7 +241,6 @@ def main() -> None:
         train_gen,
         epochs=EPOCHS_PHASE2,
         validation_data=val_gen,
-        class_weight=class_weights,
         callbacks=callbacks_dn2,
         verbose=1,
     )
@@ -256,9 +250,10 @@ def main() -> None:
 
     # Free DenseNet memory before starting EfficientNet
     del dn_model
-    tf.keras.backend.clear_session()
+    import gc
+    gc.collect()
     train_gen, val_gen = _build_generators(train_df, val_df)
-    
+
     # EFFICIENTNETB3 — PHASE 1 — Feature Extraction
     print("\n")
     print("[EfficientNetB3] PHASE 1 — Feature Extraction (frozen backbone)")
@@ -270,7 +265,6 @@ def main() -> None:
         train_gen,
         epochs=EPOCHS_PHASE1,
         validation_data=val_gen,
-        class_weight=class_weights,
         callbacks=callbacks_eff1,
         verbose=1,
     )
@@ -278,26 +272,26 @@ def main() -> None:
     best_eff_auc1 = max(eff_history1.history.get("val_auc", [0]))
     print(f"\n[EfficientNetB3] Phase 1 complete. Best val_auc: {best_eff_auc1:.4f}")
 
-    print("\n" )
+    # EFFICIENTNETB3 — PHASE 2 — Fine-Tuning
+    print("\n")
     print("[EfficientNetB3] PHASE 2 — Fine-Tuning (last 30 layers)")
 
     eff1_ckpt = "best_efficientnet_phase1.keras"
     try:
         eff_model = tf.keras.models.load_model(eff1_ckpt)
-        print(f"  ✓ Loaded best Phase 1 weights from {eff1_ckpt}")
+        print(f"  Loaded best Phase 1 weights from {eff1_ckpt}")
     except Exception as exc:
         print(f"[WARNING] Could not load {eff1_ckpt}: {exc}")
         print("  Continuing with in-memory model.")
 
     eff_model = build_efficientnet_phase2_model(eff_model)
     callbacks_eff2 = _make_callbacks(phase=2, model_name="efficientnet")
-    train_gen, val_gen = _build_generators(train_df, val_df)  # reset iterators
+    train_gen, val_gen = _build_generators(train_df, val_df)
 
     eff_history2 = eff_model.fit(
         train_gen,
         epochs=EPOCHS_PHASE2,
         validation_data=val_gen,
-        class_weight=class_weights,
         callbacks=callbacks_eff2,
         verbose=1,
     )
@@ -305,7 +299,7 @@ def main() -> None:
     best_eff_auc2 = max(eff_history2.history.get("val_auc", [0]))
     print(f"\n[EfficientNetB3] Phase 2 complete. Best val_auc: {best_eff_auc2:.4f}")
 
-    print("\n[PLOT] Generating 4×2 comparison training curves …")
+    print("\n[PLOT] Generating 4x2 comparison training curves ...")
     _plot_comparison_curves(
         dn_hist1=dn_history1.history,
         dn_hist2=dn_history2.history,
@@ -315,10 +309,8 @@ def main() -> None:
 
     print("\n")
     print("Summary:")
-    print(f"  DenseNet121   Phase 2 best val_auc : {best_dn_auc2:.4f}")
+    print(f"  DenseNet121    Phase 2 best val_auc : {best_dn_auc2:.4f}")
     print(f"  EfficientNetB3 Phase 2 best val_auc: {best_eff_auc2:.4f}")
-    print("All training phases complete.")
-    print("=" * 60)
 
 
 if __name__ == "__main__":

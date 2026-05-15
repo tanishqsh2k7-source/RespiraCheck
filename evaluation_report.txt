@@ -1,30 +1,30 @@
-PneumoScan — Dual-Model Evaluation Report
+Respiracheck — Dual-Model Evaluation Report
 ============================================================
 
 
 ==================================================
 Model: DenseNet121  (best_densenet_phase2.keras)
 ==================================================
-Test Loss     : 0.2727
-Test Accuracy : 0.8878
-ROC-AUC       : 0.9549
-Avg Precision : 0.9716
+Test Loss     : 0.0439
+Test Accuracy : 0.8958
+ROC-AUC       : 0.9568
+Avg Precision : 0.9707
 
 Classification Report
 --------------------------------------------------
               precision    recall  f1-score   support
 
-      NORMAL       0.87      0.83      0.85       234
-   PNEUMONIA       0.90      0.92      0.91       390
+      NORMAL       0.89      0.83      0.86       234
+   PNEUMONIA       0.90      0.94      0.92       390
 
-    accuracy                           0.89       624
-   macro avg       0.88      0.88      0.88       624
-weighted avg       0.89      0.89      0.89       624
+    accuracy                           0.90       624
+   macro avg       0.89      0.88      0.89       624
+weighted avg       0.90      0.90      0.90       624
 
 Confusion Matrix
 --------------------------------------------------
 [[194  40]
- [ 30 360]]
+ [ 25 365]]
 
 ==================================================
 Model: EfficientNetB3  (best_efficientnet_phase2.keras)
@@ -55,12 +55,12 @@ Side-by-Side Comparison
 ============================================================
 Metric                         |     DenseNet121 |  EfficientNetB3
 ------------------------------------------------------------------
-Test Accuracy                  |          0.8878 |          0.6667
-Pneumonia Recall               |          0.9231 |          0.9462
-Pneumonia Precision            |          0.9000 |          0.6637
-F1-Score (Pneumonia)           |          0.9114 |          0.7801
-AUC-ROC                        |          0.9549 |          0.7722
-Avg Precision (AP)             |          0.9716 |          0.8500
-Test Loss                      |          0.2727 |          0.6039
+Test Accuracy                  |          0.8958 |          0.6667
+Pneumonia Recall               |          0.9359 |          0.9462
+Pneumonia Precision            |          0.9012 |          0.6637
+F1-Score (Pneumonia)           |          0.9182 |          0.7801
+AUC-ROC                        |          0.9568 |          0.7722
+Avg Precision (AP)             |          0.9707 |          0.8500
+Test Loss                      |          0.0439 |          0.6039
 
-Best Model: DenseNet121 based on AUC-ROC score (0.9549)
+Best Model: DenseNet121 based on AUC-ROC score (0.9568)

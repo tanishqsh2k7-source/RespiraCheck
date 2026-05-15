@@ -218,7 +218,7 @@ def _per_model_section(result: ModelResult) -> str:
     )
 
 def main() -> None:
-    print("\nPneumoScan — Dual-Model Evaluation & Comparison :\n")
+    print("\nRespira — Dual-Model Evaluation & Comparison :\n")
     dn_model  = _load_model(DENSENET_PATH)
     eff_model = _load_model(EFFICIENTNET_PATH)
 
