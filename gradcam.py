@@ -84,10 +84,6 @@ def _preprocess_image(img_path: str) -> np.ndarray:
     return np.expand_dims(img_array, axis=0)
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
 def generate_gradcam(
     model: tf.keras.Model,
     img_array: np.ndarray,

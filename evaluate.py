@@ -43,7 +43,6 @@ class ModelResult:
 
 
 def _load_model(path: str) -> tf.keras.Model:
-    #Load a .keras model with informative error handling.
     print(f"[LOAD] Loading model from {path} …")
     try:
         model = tf.keras.models.load_model(path)
